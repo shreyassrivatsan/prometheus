@@ -18,11 +18,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/prometheus/pkg/exemplar"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/pkg/timestamp"
 	"github.com/prometheus/prometheus/util/teststorage"
 	"github.com/prometheus/prometheus/util/testutil"
 )
+
+var emptyExemplar = exemplar.Exemplar{}
 
 func TestDeriv(t *testing.T) {
 	// https://github.com/prometheus/prometheus/issues/2674#issuecomment-315439393
@@ -43,8 +46,8 @@ func TestDeriv(t *testing.T) {
 	testutil.Ok(t, err)
 
 	metric := labels.FromStrings("__name__", "foo")
-	a.Add(metric, 1493712816939, 1.0)
-	a.Add(metric, 1493712846939, 1.0)
+	a.Add(metric, emptyExemplar, 1493712816939, 1.0)
+	a.Add(metric, emptyExemplar, 1493712846939, 1.0)
 
 	err = a.Commit()
 	testutil.Ok(t, err)

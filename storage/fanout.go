@@ -23,6 +23,7 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
+	"github.com/prometheus/prometheus/pkg/exemplar"
 	"github.com/prometheus/prometheus/pkg/labels"
 )
 
@@ -132,27 +133,27 @@ type fanoutAppender struct {
 	secondaries []Appender
 }
 
-func (f *fanoutAppender) Add(l labels.Labels, t int64, v float64) (uint64, error) {
-	ref, err := f.primary.Add(l, t, v)
+func (f *fanoutAppender) Add(l labels.Labels, e exemplar.Exemplar, t int64, v float64) (uint64, error) {
+	ref, err := f.primary.Add(l, e, t, v)
 	if err != nil {
 		return ref, err
 	}
 
 	for _, appender := range f.secondaries {
-		if _, err := appender.Add(l, t, v); err != nil {
+		if _, err := appender.Add(l, e, t, v); err != nil {
 			return 0, err
 		}
 	}
 	return ref, nil
 }
 
-func (f *fanoutAppender) AddFast(l labels.Labels, ref uint64, t int64, v float64) error {
-	if err := f.primary.AddFast(l, ref, t, v); err != nil {
+func (f *fanoutAppender) AddFast(l labels.Labels, e exemplar.Exemplar, ref uint64, t int64, v float64) error {
+	if err := f.primary.AddFast(l, e, ref, t, v); err != nil {
 		return err
 	}
 
 	for _, appender := range f.secondaries {
-		if _, err := appender.Add(l, t, v); err != nil {
+		if _, err := appender.Add(l, e, t, v); err != nil {
 			return err
 		}
 	}

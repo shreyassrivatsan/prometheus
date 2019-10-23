@@ -14,6 +14,7 @@
 package scrape
 
 import (
+	"github.com/prometheus/prometheus/pkg/exemplar"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/storage"
 )
@@ -26,13 +27,18 @@ func (a nopAppendable) Appender() (storage.Appender, error) {
 
 type nopAppender struct{}
 
-func (a nopAppender) Add(labels.Labels, int64, float64) (uint64, error)   { return 0, nil }
-func (a nopAppender) AddFast(labels.Labels, uint64, int64, float64) error { return nil }
-func (a nopAppender) Commit() error                                       { return nil }
-func (a nopAppender) Rollback() error                                     { return nil }
+func (a nopAppender) Add(labels.Labels, exemplar.Exemplar, int64, float64) (uint64, error) {
+	return 0, nil
+}
+func (a nopAppender) AddFast(labels.Labels, exemplar.Exemplar, uint64, int64, float64) error {
+	return nil
+}
+func (a nopAppender) Commit() error   { return nil }
+func (a nopAppender) Rollback() error { return nil }
 
 type sample struct {
 	metric labels.Labels
+	e      exemplar.Exemplar
 	t      int64
 	v      float64
 }
@@ -44,32 +50,34 @@ type collectResultAppender struct {
 	result []sample
 }
 
-func (a *collectResultAppender) AddFast(m labels.Labels, ref uint64, t int64, v float64) error {
+func (a *collectResultAppender) AddFast(m labels.Labels, e exemplar.Exemplar, ref uint64, t int64, v float64) error {
 	if a.next == nil {
 		return storage.ErrNotFound
 	}
-	err := a.next.AddFast(m, ref, t, v)
+	err := a.next.AddFast(m, e, ref, t, v)
 	if err != nil {
 		return err
 	}
 	a.result = append(a.result, sample{
 		metric: m,
+		e:      e,
 		t:      t,
 		v:      v,
 	})
 	return err
 }
 
-func (a *collectResultAppender) Add(m labels.Labels, t int64, v float64) (uint64, error) {
+func (a *collectResultAppender) Add(m labels.Labels, e exemplar.Exemplar, t int64, v float64) (uint64, error) {
 	a.result = append(a.result, sample{
 		metric: m,
+		e:      e,
 		t:      t,
 		v:      v,
 	})
 	if a.next == nil {
 		return 0, nil
 	}
-	return a.next.Add(m, t, v)
+	return a.next.Add(m, e, t, v)
 }
 
 func (a *collectResultAppender) Commit() error   { return nil }

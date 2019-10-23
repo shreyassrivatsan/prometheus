@@ -27,6 +27,7 @@ import (
 
 	"github.com/prometheus/prometheus/config"
 	"github.com/prometheus/prometheus/discovery/targetgroup"
+	"github.com/prometheus/prometheus/pkg/exemplar"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/pkg/relabel"
 	"github.com/prometheus/prometheus/pkg/textparse"
@@ -265,28 +266,28 @@ type limitAppender struct {
 	i     int
 }
 
-func (app *limitAppender) Add(lset labels.Labels, t int64, v float64) (uint64, error) {
+func (app *limitAppender) Add(lset labels.Labels, e exemplar.Exemplar, t int64, v float64) (uint64, error) {
 	if !value.IsStaleNaN(v) {
 		app.i++
 		if app.i > app.limit {
 			return 0, errSampleLimit
 		}
 	}
-	ref, err := app.Appender.Add(lset, t, v)
+	ref, err := app.Appender.Add(lset, e, t, v)
 	if err != nil {
 		return 0, err
 	}
 	return ref, nil
 }
 
-func (app *limitAppender) AddFast(lset labels.Labels, ref uint64, t int64, v float64) error {
+func (app *limitAppender) AddFast(lset labels.Labels, e exemplar.Exemplar, ref uint64, t int64, v float64) error {
 	if !value.IsStaleNaN(v) {
 		app.i++
 		if app.i > app.limit {
 			return errSampleLimit
 		}
 	}
-	err := app.Appender.AddFast(lset, ref, t, v)
+	err := app.Appender.AddFast(lset, e, ref, t, v)
 	return err
 }
 
@@ -296,23 +297,23 @@ type timeLimitAppender struct {
 	maxTime int64
 }
 
-func (app *timeLimitAppender) Add(lset labels.Labels, t int64, v float64) (uint64, error) {
+func (app *timeLimitAppender) Add(lset labels.Labels, e exemplar.Exemplar, t int64, v float64) (uint64, error) {
 	if t > app.maxTime {
 		return 0, storage.ErrOutOfBounds
 	}
 
-	ref, err := app.Appender.Add(lset, t, v)
+	ref, err := app.Appender.Add(lset, e, t, v)
 	if err != nil {
 		return 0, err
 	}
 	return ref, nil
 }
 
-func (app *timeLimitAppender) AddFast(lset labels.Labels, ref uint64, t int64, v float64) error {
+func (app *timeLimitAppender) AddFast(lset labels.Labels, e exemplar.Exemplar, ref uint64, t int64, v float64) error {
 	if t > app.maxTime {
 		return storage.ErrOutOfBounds
 	}
-	err := app.Appender.AddFast(lset, ref, t, v)
+	err := app.Appender.AddFast(lset, e, ref, t, v)
 	return err
 }
 

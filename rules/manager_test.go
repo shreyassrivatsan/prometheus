@@ -23,6 +23,7 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/prometheus/common/model"
 
+	"github.com/prometheus/prometheus/pkg/exemplar"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/pkg/timestamp"
 	"github.com/prometheus/prometheus/pkg/value"
@@ -31,6 +32,8 @@ import (
 	"github.com/prometheus/prometheus/util/teststorage"
 	"github.com/prometheus/prometheus/util/testutil"
 )
+
+var emptyExemplar = exemplar.Exemplar{}
 
 func TestAlertingRule(t *testing.T) {
 	suite, err := promql.NewTest(t, `
@@ -518,9 +521,9 @@ func TestStaleness(t *testing.T) {
 
 	// A time series that has two samples and then goes stale.
 	app, _ := storage.Appender()
-	app.Add(labels.FromStrings(model.MetricNameLabel, "a"), 0, 1)
-	app.Add(labels.FromStrings(model.MetricNameLabel, "a"), 1000, 2)
-	app.Add(labels.FromStrings(model.MetricNameLabel, "a"), 2000, math.Float64frombits(value.StaleNaN))
+	app.Add(labels.FromStrings(model.MetricNameLabel, "a"), emptyExemplar, 0, 1)
+	app.Add(labels.FromStrings(model.MetricNameLabel, "a"), emptyExemplar, 1000, 2)
+	app.Add(labels.FromStrings(model.MetricNameLabel, "a"), emptyExemplar, 2000, math.Float64frombits(value.StaleNaN))
 
 	err = app.Commit()
 	testutil.Ok(t, err)
@@ -749,10 +752,10 @@ func TestNotify(t *testing.T) {
 	group := NewGroup("alert", "", time.Second, []Rule{rule}, true, opts)
 
 	app, _ := storage.Appender()
-	app.Add(labels.FromStrings(model.MetricNameLabel, "a"), 1000, 2)
-	app.Add(labels.FromStrings(model.MetricNameLabel, "a"), 2000, 3)
-	app.Add(labels.FromStrings(model.MetricNameLabel, "a"), 5000, 3)
-	app.Add(labels.FromStrings(model.MetricNameLabel, "a"), 6000, 0)
+	app.Add(labels.FromStrings(model.MetricNameLabel, "a"), emptyExemplar, 1000, 2)
+	app.Add(labels.FromStrings(model.MetricNameLabel, "a"), emptyExemplar, 2000, 3)
+	app.Add(labels.FromStrings(model.MetricNameLabel, "a"), emptyExemplar, 5000, 3)
+	app.Add(labels.FromStrings(model.MetricNameLabel, "a"), emptyExemplar, 6000, 0)
 
 	err = app.Commit()
 	testutil.Ok(t, err)

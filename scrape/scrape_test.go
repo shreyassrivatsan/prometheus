@@ -34,6 +34,7 @@ import (
 
 	"github.com/prometheus/prometheus/config"
 	"github.com/prometheus/prometheus/discovery/targetgroup"
+	"github.com/prometheus/prometheus/pkg/exemplar"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/pkg/relabel"
 	"github.com/prometheus/prometheus/pkg/textparse"
@@ -925,6 +926,7 @@ func TestScrapeLoopAppend(t *testing.T) {
 		discoveryLabels []string
 		expLset         labels.Labels
 		expValue        float64
+		exemplar        exemplar.Exemplar
 	}{
 		{
 			// When "honor_labels" is not set
@@ -947,7 +949,7 @@ func TestScrapeLoopAppend(t *testing.T) {
 			// Honor Labels should ignore labels with the same name.
 			title:           "Honor Labels",
 			honorLabels:     true,
-			scrapeLabels:    `metric{n1="1" n2="2"} 0`,
+			scrapeLabels:    `metric{n1="1",n2="2"} 0`,
 			discoveryLabels: []string{"n1", "0"},
 			expLset:         labels.FromStrings("__name__", "metric", "n1", "1", "n2", "2"),
 			expValue:        0,
@@ -958,6 +960,14 @@ func TestScrapeLoopAppend(t *testing.T) {
 			discoveryLabels: nil,
 			expLset:         labels.FromStrings("__name__", "metric"),
 			expValue:        float64(value.NormalNaN),
+		}, {
+			title:           "Exemplar Present",
+			honorLabels:     false,
+			scrapeLabels:    `metric{n="1"} 0 # {aa="bb",cc="dd"}`,
+			discoveryLabels: []string{"n", "2"},
+			expLset:         labels.FromStrings("__name__", "metric", "exported_n", "1", "n", "2"),
+			expValue:        0,
+			exemplar:        exemplar.Exemplar{Labels: labels.FromStrings("aa", "bb", "cc", "dd")},
 		},
 	}
 
@@ -990,6 +1000,7 @@ func TestScrapeLoopAppend(t *testing.T) {
 		expected := []sample{
 			{
 				metric: test.expLset,
+				e:      test.exemplar,
 				t:      timestamp.FromTime(now),
 				v:      test.expValue,
 			},
@@ -1162,7 +1173,7 @@ func TestScrapeLoopAppendNoStalenessIfTimestamp(t *testing.T) {
 	want := []sample{
 		{
 			metric: labels.FromStrings(model.MetricNameLabel, "metric_a"),
-			t:      1000,
+			t:      1000000,
 			v:      1,
 		},
 	}
@@ -1230,7 +1241,7 @@ type errorAppender struct {
 	collectResultAppender
 }
 
-func (app *errorAppender) Add(lset labels.Labels, t int64, v float64) (uint64, error) {
+func (app *errorAppender) Add(lset labels.Labels, e exemplar.Exemplar, t int64, v float64) (uint64, error) {
 	switch lset.Get(model.MetricNameLabel) {
 	case "out_of_order":
 		return 0, storage.ErrOutOfOrderSample
@@ -1239,12 +1250,12 @@ func (app *errorAppender) Add(lset labels.Labels, t int64, v float64) (uint64, e
 	case "out_of_bounds":
 		return 0, storage.ErrOutOfBounds
 	default:
-		return app.collectResultAppender.Add(lset, t, v)
+		return app.collectResultAppender.Add(lset, e, t, v)
 	}
 }
 
-func (app *errorAppender) AddFast(lset labels.Labels, ref uint64, t int64, v float64) error {
-	return app.collectResultAppender.AddFast(lset, ref, t, v)
+func (app *errorAppender) AddFast(lset labels.Labels, e exemplar.Exemplar, ref uint64, t int64, v float64) error {
+	return app.collectResultAppender.AddFast(lset, e, ref, t, v)
 }
 
 func TestScrapeLoopAppendGracefullyIfAmendOrOutOfOrderOrOutOfBounds(t *testing.T) {

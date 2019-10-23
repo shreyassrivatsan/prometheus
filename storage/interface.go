@@ -17,6 +17,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/prometheus/prometheus/pkg/exemplar"
 	"github.com/prometheus/prometheus/pkg/labels"
 )
 
@@ -84,9 +85,9 @@ func (f QueryableFunc) Querier(ctx context.Context, mint, maxt int64) (Querier, 
 
 // Appender provides batched appends against a storage.
 type Appender interface {
-	Add(l labels.Labels, t int64, v float64) (uint64, error)
+	Add(l labels.Labels, e exemplar.Exemplar, t int64, v float64) (uint64, error)
 
-	AddFast(l labels.Labels, ref uint64, t int64, v float64) error
+	AddFast(l labels.Labels, e exemplar.Exemplar, ref uint64, t int64, v float64) error
 
 	// Commit submits the collected samples and purges the batch.
 	Commit() error

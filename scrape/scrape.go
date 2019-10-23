@@ -37,6 +37,7 @@ import (
 
 	"github.com/prometheus/prometheus/config"
 	"github.com/prometheus/prometheus/discovery/targetgroup"
+	"github.com/prometheus/prometheus/pkg/exemplar"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/pkg/pool"
 	"github.com/prometheus/prometheus/pkg/relabel"
@@ -1061,12 +1062,15 @@ loop:
 			t = *tp
 		}
 
+		var e exemplar.Exemplar
+		p.Exemplar(&e)
+
 		if sl.cache.getDropped(yoloString(met)) {
 			continue
 		}
 		ce, ok := sl.cache.get(yoloString(met))
 		if ok {
-			switch err = app.AddFast(ce.lset, ce.ref, t, v); err {
+			switch err = app.AddFast(ce.lset, e, ce.ref, t, v); err {
 			case nil:
 				if tp == nil {
 					sl.cache.trackStaleness(ce.hash, ce.lset)
@@ -1115,7 +1119,7 @@ loop:
 			}
 
 			var ref uint64
-			ref, err = app.Add(lset, t, v)
+			ref, err = app.Add(lset, e, t, v)
 			switch err {
 			case nil:
 			case storage.ErrOutOfOrderSample:
@@ -1172,7 +1176,7 @@ loop:
 	if err == nil {
 		sl.cache.forEachStale(func(lset labels.Labels) bool {
 			// Series no longer exposed, mark it stale.
-			_, err = app.Add(lset, defTime, math.Float64frombits(value.StaleNaN))
+			_, err = app.Add(lset, exemplar.Exemplar{}, defTime, math.Float64frombits(value.StaleNaN))
 			switch err {
 			case storage.ErrOutOfOrderSample, storage.ErrDuplicateSampleForTimestamp:
 				// Do not count these in logging, as this is expected if a target
@@ -1277,7 +1281,7 @@ func (sl *scrapeLoop) reportStale(start time.Time) error {
 func (sl *scrapeLoop) addReportSample(app storage.Appender, s string, t int64, v float64) error {
 	ce, ok := sl.cache.get(s)
 	if ok {
-		err := app.AddFast(ce.lset, ce.ref, t, v)
+		err := app.AddFast(ce.lset, exemplar.Exemplar{}, ce.ref, t, v)
 		switch err {
 		case nil:
 			return nil
@@ -1301,7 +1305,7 @@ func (sl *scrapeLoop) addReportSample(app storage.Appender, s string, t int64, v
 	hash := lset.Hash()
 	lset = sl.reportSampleMutator(lset)
 
-	ref, err := app.Add(lset, t, v)
+	ref, err := app.Add(lset, exemplar.Exemplar{}, t, v)
 	switch err {
 	case nil:
 		sl.cache.addRef(s, ref, lset, hash)

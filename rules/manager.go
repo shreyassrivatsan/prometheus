@@ -29,6 +29,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/model"
 
+	"github.com/prometheus/prometheus/pkg/exemplar"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/pkg/rulefmt"
 	"github.com/prometheus/prometheus/pkg/timestamp"
@@ -544,7 +545,7 @@ func (g *Group) Eval(ctx context.Context, ts time.Time) {
 
 			seriesReturned := make(map[string]labels.Labels, len(g.seriesInPreviousEval[i]))
 			for _, s := range vector {
-				if _, err := app.Add(s.Metric, s.T, s.V); err != nil {
+				if _, err := app.Add(s.Metric, exemplar.Exemplar{}, s.T, s.V); err != nil {
 					switch err {
 					case storage.ErrOutOfOrderSample:
 						numOutOfOrder++
@@ -569,7 +570,7 @@ func (g *Group) Eval(ctx context.Context, ts time.Time) {
 			for metric, lset := range g.seriesInPreviousEval[i] {
 				if _, ok := seriesReturned[metric]; !ok {
 					// Series no longer exposed, mark it stale.
-					_, err = app.Add(lset, timestamp.FromTime(ts), math.Float64frombits(value.StaleNaN))
+					_, err = app.Add(lset, exemplar.Exemplar{}, timestamp.FromTime(ts), math.Float64frombits(value.StaleNaN))
 					switch err {
 					case nil:
 					case storage.ErrOutOfOrderSample, storage.ErrDuplicateSampleForTimestamp:
@@ -596,7 +597,7 @@ func (g *Group) Eval(ctx context.Context, ts time.Time) {
 		}
 		for _, s := range g.staleSeries {
 			// Rule that produced series no longer configured, mark it stale.
-			_, err = app.Add(s, timestamp.FromTime(ts), math.Float64frombits(value.StaleNaN))
+			_, err = app.Add(s, exemplar.Exemplar{}, timestamp.FromTime(ts), math.Float64frombits(value.StaleNaN))
 			switch err {
 			case nil:
 			case storage.ErrOutOfOrderSample, storage.ErrDuplicateSampleForTimestamp:

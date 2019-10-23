@@ -74,9 +74,9 @@ func BenchmarkRangeQuery(b *testing.B) {
 		}
 		ts := int64(s * 10000) // 10s interval.
 		for i, metric := range metrics {
-			err := a.AddFast(metric, refs[i], ts, float64(s))
+			err := a.AddFast(metric, emptyExemplar, refs[i], ts, float64(s))
 			if err != nil {
-				refs[i], _ = a.Add(metric, ts, float64(s))
+				refs[i], _ = a.Add(metric, emptyExemplar, ts, float64(s))
 			}
 		}
 		if err := a.Commit(); err != nil {

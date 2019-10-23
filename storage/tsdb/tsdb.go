@@ -24,6 +24,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/model"
+	"github.com/prometheus/prometheus/pkg/exemplar"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/storage"
 	"github.com/prometheus/prometheus/tsdb"
@@ -286,7 +287,7 @@ type appender struct {
 	a tsdb.Appender
 }
 
-func (a appender) Add(lset labels.Labels, t int64, v float64) (uint64, error) {
+func (a appender) Add(lset labels.Labels, _ exemplar.Exemplar, t int64, v float64) (uint64, error) {
 	ref, err := a.a.Add(toTSDBLabels(lset), t, v)
 
 	switch errors.Cause(err) {
@@ -302,7 +303,7 @@ func (a appender) Add(lset labels.Labels, t int64, v float64) (uint64, error) {
 	return ref, err
 }
 
-func (a appender) AddFast(_ labels.Labels, ref uint64, t int64, v float64) error {
+func (a appender) AddFast(_ labels.Labels, _ exemplar.Exemplar, ref uint64, t int64, v float64) error {
 	err := a.a.AddFast(ref, t, v)
 
 	switch errors.Cause(err) {

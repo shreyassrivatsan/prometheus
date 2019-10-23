@@ -18,11 +18,14 @@ import (
 
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/model"
+	"github.com/prometheus/prometheus/pkg/exemplar"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/storage/tsdb"
 	"github.com/prometheus/prometheus/util/teststorage"
 	"github.com/prometheus/prometheus/util/testutil"
 )
+
+var emptyExemplar = exemplar.Exemplar{}
 
 func TestMetrics(t *testing.T) {
 	db := teststorage.New(t)
@@ -46,9 +49,9 @@ func TestMetrics(t *testing.T) {
 	app, err := db.Appender()
 	testutil.Ok(t, err)
 
-	app.Add(labels.FromStrings(model.MetricNameLabel, "a"), 1, 1)
-	app.Add(labels.FromStrings(model.MetricNameLabel, "a"), 2, 1)
-	app.Add(labels.FromStrings(model.MetricNameLabel, "a"), 3, 1)
+	app.Add(labels.FromStrings(model.MetricNameLabel, "a"), emptyExemplar, 1, 1)
+	app.Add(labels.FromStrings(model.MetricNameLabel, "a"), emptyExemplar, 2, 1)
+	app.Add(labels.FromStrings(model.MetricNameLabel, "a"), emptyExemplar, 3, 1)
 	testutil.Ok(t, app.Commit())
 
 	// Check after adding some samples.
