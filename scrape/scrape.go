@@ -37,6 +37,7 @@ import (
 
 	"github.com/prometheus/prometheus/config"
 	"github.com/prometheus/prometheus/discovery/targetgroup"
+	"github.com/prometheus/prometheus/pkg/exemplar"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/pkg/pool"
 	"github.com/prometheus/prometheus/pkg/relabel"
@@ -164,6 +165,7 @@ type scrapePool struct {
 	droppedTargets []*Target
 	loops          map[uint64]loop
 	cancel         context.CancelFunc
+	exemplarStore  exemplar.Storage
 
 	// Constructor for new scrape loops. This is settable for testing convenience.
 	newLoop func(scrapeLoopOptions) loop
@@ -176,13 +178,14 @@ type scrapeLoopOptions struct {
 	honorLabels     bool
 	honorTimestamps bool
 	mrc             []*relabel.Config
+	exemplarStore   exemplar.Storage
 }
 
 const maxAheadTime = 10 * time.Minute
 
 type labelsMutator func(labels.Labels) labels.Labels
 
-func newScrapePool(cfg *config.ScrapeConfig, app Appendable, jitterSeed uint64, logger log.Logger) (*scrapePool, error) {
+func newScrapePool(cfg *config.ScrapeConfig, app Appendable, jitterSeed uint64, logger log.Logger, e exemplar.Storage) (*scrapePool, error) {
 	targetScrapePools.Inc()
 	if logger == nil {
 		logger = log.NewNopLogger()
@@ -205,6 +208,7 @@ func newScrapePool(cfg *config.ScrapeConfig, app Appendable, jitterSeed uint64, 
 		activeTargets: map[uint64]*Target{},
 		loops:         map[uint64]loop{},
 		logger:        logger,
+		exemplarStore: e,
 	}
 	sp.newLoop = func(opts scrapeLoopOptions) loop {
 		// Update the targets retrieval function for metadata to a new scrape cache.
@@ -227,6 +231,7 @@ func newScrapePool(cfg *config.ScrapeConfig, app Appendable, jitterSeed uint64, 
 				}
 				return appender(app, opts.limit)
 			},
+			opts.exemplarStore,
 			cache,
 			jitterSeed,
 			opts.honorTimestamps,
@@ -316,6 +321,7 @@ func (sp *scrapePool) reload(cfg *config.ScrapeConfig) error {
 				honorLabels:     honorLabels,
 				honorTimestamps: honorTimestamps,
 				mrc:             mrc,
+				exemplarStore:   sp.exemplarStore,
 			})
 		)
 		wg.Add(1)
@@ -400,6 +406,7 @@ func (sp *scrapePool) sync(targets []*Target) {
 				honorLabels:     honorLabels,
 				honorTimestamps: honorTimestamps,
 				mrc:             mrc,
+				exemplarStore:   sp.exemplarStore,
 			})
 
 			sp.activeTargets[hash] = t
@@ -600,6 +607,7 @@ type scrapeLoop struct {
 	appender            func() storage.Appender
 	sampleMutator       labelsMutator
 	reportSampleMutator labelsMutator
+	exemplarStore       exemplar.Storage
 
 	parentCtx context.Context
 	ctx       context.Context
@@ -834,6 +842,7 @@ func newScrapeLoop(ctx context.Context,
 	sampleMutator labelsMutator,
 	reportSampleMutator labelsMutator,
 	appender func() storage.Appender,
+	exemplarStore exemplar.Storage,
 	cache *scrapeCache,
 	jitterSeed uint64,
 	honorTimestamps bool,
@@ -859,6 +868,7 @@ func newScrapeLoop(ctx context.Context,
 		l:                   l,
 		parentCtx:           ctx,
 		honorTimestamps:     honorTimestamps,
+		exemplarStore:       exemplarStore,
 	}
 	sl.ctx, sl.cancel = context.WithCancel(ctx)
 
@@ -1061,11 +1071,20 @@ loop:
 			t = *tp
 		}
 
+		var e exemplar.Exemplar
+		found := p.Exemplar(&e)
+
 		if sl.cache.getDropped(yoloString(met)) {
 			continue
 		}
 		ce, ok := sl.cache.get(yoloString(met))
 		if ok {
+			// Store the exemplar in the exemplar store.
+			if found {
+				if sl.exemplarStore != nil {
+					sl.exemplarStore.Add(ce.lset, t, e)
+				}
+			}
 			switch err = app.AddFast(ce.lset, ce.ref, t, v); err {
 			case nil:
 				if tp == nil {
@@ -1112,6 +1131,13 @@ loop:
 			if lset == nil {
 				sl.cache.addDropped(mets)
 				continue
+			}
+
+			// Store the exemplar in the exemplar store.
+			if found {
+				if sl.exemplarStore != nil {
+					sl.exemplarStore.Add(lset, t, e)
+				}
 			}
 
 			var ref uint64

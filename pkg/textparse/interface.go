@@ -14,8 +14,7 @@
 package textparse
 
 import (
-	"mime"
-
+	"github.com/prometheus/prometheus/pkg/exemplar"
 	"github.com/prometheus/prometheus/pkg/labels"
 )
 
@@ -50,6 +49,10 @@ type Parser interface {
 	// It returns the string from which the metric was parsed.
 	Metric(l *labels.Labels) string
 
+	// Exemplar writes the exemplar of the current sample into the passed
+	// exemplar. It returns if an exemplar exists or not.
+	Exemplar(l *exemplar.Exemplar) bool
+
 	// Next advances the parser to the next sample. It returns false if no
 	// more samples were read or an error occurred.
 	Next() (Entry, error)
@@ -57,11 +60,12 @@ type Parser interface {
 
 // New returns a new parser of the byte slice.
 func New(b []byte, contentType string) Parser {
-	mediaType, _, err := mime.ParseMediaType(contentType)
-	if err == nil && mediaType == "application/openmetrics-text" {
-		return NewOpenMetricsParser(b)
-	}
-	return NewPromParser(b)
+	// mediaType, _, err := mime.ParseMediaType(contentType)
+	// if err == nil && mediaType == "application/openmetrics-text" {
+	// 	return NewOpenMetricsParser(b)
+	// }
+	// return NewPromParser(b)
+	return NewOpenMetricsParser(b)
 }
 
 // Entry represents the type of a parsed entry.

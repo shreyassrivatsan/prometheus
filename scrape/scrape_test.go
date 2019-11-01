@@ -48,7 +48,7 @@ func TestNewScrapePool(t *testing.T) {
 	var (
 		app   = &nopAppendable{}
 		cfg   = &config.ScrapeConfig{}
-		sp, _ = newScrapePool(cfg, app, 0, nil)
+		sp, _ = newScrapePool(cfg, app, 0, nil, nil)
 	)
 
 	if a, ok := sp.appendable.(*nopAppendable); !ok || a != app {
@@ -83,7 +83,7 @@ func TestDroppedTargetsList(t *testing.T) {
 				},
 			},
 		}
-		sp, _                  = newScrapePool(cfg, app, 0, nil)
+		sp, _                  = newScrapePool(cfg, app, 0, nil, nil)
 		expectedLabelSetString = "{__address__=\"127.0.0.1:9090\", job=\"dropMe\"}"
 		expectedLength         = 1
 	)
@@ -291,7 +291,7 @@ func TestScrapePoolReload(t *testing.T) {
 func TestScrapePoolAppender(t *testing.T) {
 	cfg := &config.ScrapeConfig{}
 	app := &nopAppendable{}
-	sp, _ := newScrapePool(cfg, app, 0, nil)
+	sp, _ := newScrapePool(cfg, app, 0, nil, nil)
 
 	loop := sp.newLoop(scrapeLoopOptions{
 		target: &Target{},
@@ -332,7 +332,7 @@ func TestScrapePoolRaces(t *testing.T) {
 	newConfig := func() *config.ScrapeConfig {
 		return &config.ScrapeConfig{ScrapeInterval: interval, ScrapeTimeout: timeout}
 	}
-	sp, _ := newScrapePool(newConfig(), &nopAppendable{}, 0, nil)
+	sp, _ := newScrapePool(newConfig(), &nopAppendable{}, 0, nil, nil)
 	tgts := []*targetgroup.Group{
 		{
 			Targets: []model.LabelSet{
@@ -371,7 +371,7 @@ func TestScrapeLoopStopBeforeRun(t *testing.T) {
 		nil, nil,
 		nopMutator,
 		nopMutator,
-		nil, nil, 0,
+		nil, nil, nil, 0,
 		true,
 	)
 
@@ -435,6 +435,7 @@ func TestScrapeLoopStop(t *testing.T) {
 		nopMutator,
 		nopMutator,
 		app,
+		nil,
 		nil,
 		0,
 		true,
@@ -503,6 +504,7 @@ func TestScrapeLoopRun(t *testing.T) {
 		nopMutator,
 		app,
 		nil,
+		nil,
 		0,
 		true,
 	)
@@ -549,6 +551,7 @@ func TestScrapeLoopRun(t *testing.T) {
 		nopMutator,
 		nopMutator,
 		app,
+		nil,
 		nil,
 		0,
 		true,
@@ -599,6 +602,7 @@ func TestScrapeLoopMetadata(t *testing.T) {
 		nopMutator,
 		nopMutator,
 		func() storage.Appender { return nopAppender{} },
+		nil,
 		cache,
 		0,
 		true,
@@ -650,6 +654,7 @@ func TestScrapeLoopSeriesAdded(t *testing.T) {
 		nopMutator,
 		func() storage.Appender { return app },
 		nil,
+		nil,
 		0,
 		true,
 	)
@@ -684,6 +689,7 @@ func TestScrapeLoopRunCreatesStaleMarkersOnFailedScrape(t *testing.T) {
 		nopMutator,
 		nopMutator,
 		app,
+		nil,
 		nil,
 		0,
 		true,
@@ -739,6 +745,7 @@ func TestScrapeLoopRunCreatesStaleMarkersOnParseFailure(t *testing.T) {
 		nopMutator,
 		nopMutator,
 		app,
+		nil,
 		nil,
 		0,
 		true,
@@ -801,6 +808,7 @@ func TestScrapeLoopCache(t *testing.T) {
 		nopMutator,
 		nopMutator,
 		app,
+		nil,
 		nil,
 		0,
 		true,
@@ -879,6 +887,7 @@ func TestScrapeLoopCacheMemoryExhaustionProtection(t *testing.T) {
 		nopMutator,
 		nopMutator,
 		app,
+		nil,
 		nil,
 		0,
 		true,
@@ -978,6 +987,7 @@ func TestScrapeLoopAppend(t *testing.T) {
 			},
 			func() storage.Appender { return app },
 			nil,
+			nil,
 			0,
 			true,
 		)
@@ -1016,6 +1026,7 @@ func TestScrapeLoopAppendSampleLimit(t *testing.T) {
 		nopMutator,
 		nopMutator,
 		func() storage.Appender { return app },
+		nil,
 		nil,
 		0,
 		true,
@@ -1073,6 +1084,7 @@ func TestScrapeLoop_ChangingMetricString(t *testing.T) {
 		nopMutator,
 		func() storage.Appender { return capp },
 		nil,
+		nil,
 		0,
 		true,
 	)
@@ -1108,6 +1120,7 @@ func TestScrapeLoopAppendStaleness(t *testing.T) {
 		nopMutator,
 		nopMutator,
 		func() storage.Appender { return app },
+		nil,
 		nil,
 		0,
 		true,
@@ -1148,6 +1161,7 @@ func TestScrapeLoopAppendNoStalenessIfTimestamp(t *testing.T) {
 		nopMutator,
 		func() storage.Appender { return app },
 		nil,
+		nil,
 		0,
 		true,
 	)
@@ -1184,6 +1198,7 @@ func TestScrapeLoopRunReportsTargetDownOnScrapeError(t *testing.T) {
 		nopMutator,
 		app,
 		nil,
+		nil,
 		0,
 		true,
 	)
@@ -1211,6 +1226,7 @@ func TestScrapeLoopRunReportsTargetDownOnInvalidUTF8(t *testing.T) {
 		nopMutator,
 		nopMutator,
 		app,
+		nil,
 		nil,
 		0,
 		true,
@@ -1257,6 +1273,7 @@ func TestScrapeLoopAppendGracefullyIfAmendOrOutOfOrderOrOutOfBounds(t *testing.T
 		nopMutator,
 		func() storage.Appender { return app },
 		nil,
+		nil,
 		0,
 		true,
 	)
@@ -1291,6 +1308,7 @@ func TestScrapeLoopOutOfBoundsTimeError(t *testing.T) {
 				maxTime:  timestamp.FromTime(time.Now().Add(10 * time.Minute)),
 			}
 		},
+		nil,
 		nil,
 		0,
 		true,
@@ -1477,6 +1495,7 @@ func TestScrapeLoop_RespectTimestamps(t *testing.T) {
 		nopMutator,
 		nopMutator,
 		func() storage.Appender { return capp },
+		nil,
 		nil, 0,
 		true,
 	)
@@ -1509,6 +1528,7 @@ func TestScrapeLoop_DiscardTimestamps(t *testing.T) {
 		nopMutator,
 		nopMutator,
 		func() storage.Appender { return capp },
+		nil,
 		nil, 0,
 		false,
 	)

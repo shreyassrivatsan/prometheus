@@ -60,7 +60,7 @@ func TestSampleDelivery(t *testing.T) {
 	testutil.Ok(t, err)
 	defer os.RemoveAll(dir)
 
-	m := NewQueueManager(nil, nil, dir, newEWMARate(ewmaWeight, shardUpdateDuration), cfg, nil, nil, c, defaultFlushDeadline)
+	m := NewQueueManager(nil, nil, dir, newEWMARate(ewmaWeight, shardUpdateDuration), cfg, nil, nil, c, defaultFlushDeadline, nil)
 	m.StoreSeries(series, 0)
 
 	// These should be received by the client.
@@ -88,7 +88,7 @@ func TestSampleDeliveryTimeout(t *testing.T) {
 	testutil.Ok(t, err)
 	defer os.RemoveAll(dir)
 
-	m := NewQueueManager(nil, nil, dir, newEWMARate(ewmaWeight, shardUpdateDuration), cfg, nil, nil, c, defaultFlushDeadline)
+	m := NewQueueManager(nil, nil, dir, newEWMARate(ewmaWeight, shardUpdateDuration), cfg, nil, nil, c, defaultFlushDeadline, nil)
 	m.StoreSeries(series, 0)
 	m.Start()
 	defer m.Stop()
@@ -128,7 +128,7 @@ func TestSampleDeliveryOrder(t *testing.T) {
 	testutil.Ok(t, err)
 	defer os.RemoveAll(dir)
 
-	m := NewQueueManager(nil, nil, dir, newEWMARate(ewmaWeight, shardUpdateDuration), config.DefaultQueueConfig, nil, nil, c, defaultFlushDeadline)
+	m := NewQueueManager(nil, nil, dir, newEWMARate(ewmaWeight, shardUpdateDuration), config.DefaultQueueConfig, nil, nil, c, defaultFlushDeadline, nil)
 	m.StoreSeries(series, 0)
 
 	m.Start()
@@ -146,7 +146,7 @@ func TestShutdown(t *testing.T) {
 	testutil.Ok(t, err)
 	defer os.RemoveAll(dir)
 
-	m := NewQueueManager(nil, nil, dir, newEWMARate(ewmaWeight, shardUpdateDuration), config.DefaultQueueConfig, nil, nil, c, deadline)
+	m := NewQueueManager(nil, nil, dir, newEWMARate(ewmaWeight, shardUpdateDuration), config.DefaultQueueConfig, nil, nil, c, deadline, nil)
 	samples, series := createTimeseries(2 * config.DefaultQueueConfig.MaxSamplesPerSend)
 	m.StoreSeries(series, 0)
 	m.Start()
@@ -182,7 +182,7 @@ func TestSeriesReset(t *testing.T) {
 	testutil.Ok(t, err)
 	defer os.RemoveAll(dir)
 
-	m := NewQueueManager(nil, nil, dir, newEWMARate(ewmaWeight, shardUpdateDuration), config.DefaultQueueConfig, nil, nil, c, deadline)
+	m := NewQueueManager(nil, nil, dir, newEWMARate(ewmaWeight, shardUpdateDuration), config.DefaultQueueConfig, nil, nil, c, deadline, nil)
 	for i := 0; i < numSegments; i++ {
 		series := []record.RefSeries{}
 		for j := 0; j < numSeries; j++ {
@@ -210,7 +210,7 @@ func TestReshard(t *testing.T) {
 	testutil.Ok(t, err)
 	defer os.RemoveAll(dir)
 
-	m := NewQueueManager(nil, nil, dir, newEWMARate(ewmaWeight, shardUpdateDuration), cfg, nil, nil, c, defaultFlushDeadline)
+	m := NewQueueManager(nil, nil, dir, newEWMARate(ewmaWeight, shardUpdateDuration), cfg, nil, nil, c, defaultFlushDeadline, nil)
 	m.StoreSeries(series, 0)
 
 	m.Start()
@@ -242,7 +242,7 @@ func TestReshardRaceWithStop(t *testing.T) {
 
 	go func() {
 		for {
-			m = NewQueueManager(nil, nil, "", newEWMARate(ewmaWeight, shardUpdateDuration), config.DefaultQueueConfig, nil, nil, c, defaultFlushDeadline)
+			m = NewQueueManager(nil, nil, "", newEWMARate(ewmaWeight, shardUpdateDuration), config.DefaultQueueConfig, nil, nil, c, defaultFlushDeadline, nil)
 			m.Start()
 			h.Unlock()
 			h.Lock()
@@ -259,7 +259,7 @@ func TestReshardRaceWithStop(t *testing.T) {
 
 func TestReleaseNoninternedString(t *testing.T) {
 	c := NewTestStorageClient()
-	m := NewQueueManager(nil, nil, "", newEWMARate(ewmaWeight, shardUpdateDuration), config.DefaultQueueConfig, nil, nil, c, defaultFlushDeadline)
+	m := NewQueueManager(nil, nil, "", newEWMARate(ewmaWeight, shardUpdateDuration), config.DefaultQueueConfig, nil, nil, c, defaultFlushDeadline, nil)
 	m.Start()
 
 	for i := 1; i < 1000; i++ {
@@ -305,7 +305,7 @@ func TestCalculateDesiredsShards(t *testing.T) {
 	}
 	for _, c := range cases {
 		client := NewTestStorageClient()
-		m := NewQueueManager(nil, nil, "", newEWMARate(ewmaWeight, shardUpdateDuration), config.DefaultQueueConfig, nil, nil, client, defaultFlushDeadline)
+		m := NewQueueManager(nil, nil, "", newEWMARate(ewmaWeight, shardUpdateDuration), config.DefaultQueueConfig, nil, nil, client, defaultFlushDeadline, nil)
 		m.numShards = c.startingShards
 		m.samplesIn.incr(c.samplesIn)
 		m.samplesOut.incr(c.samplesOut)
@@ -488,7 +488,7 @@ func BenchmarkSampleDelivery(b *testing.B) {
 	testutil.Ok(b, err)
 	defer os.RemoveAll(dir)
 
-	m := NewQueueManager(nil, nil, dir, newEWMARate(ewmaWeight, shardUpdateDuration), cfg, nil, nil, c, defaultFlushDeadline)
+	m := NewQueueManager(nil, nil, dir, newEWMARate(ewmaWeight, shardUpdateDuration), cfg, nil, nil, c, defaultFlushDeadline, nil)
 	m.StoreSeries(series, 0)
 
 	// These should be received by the client.
@@ -531,7 +531,7 @@ func BenchmarkStartup(b *testing.B) {
 		c := NewTestBlockedStorageClient()
 		m := NewQueueManager(nil, logger, dir,
 			newEWMARate(ewmaWeight, shardUpdateDuration),
-			config.DefaultQueueConfig, nil, nil, c, 1*time.Minute)
+			config.DefaultQueueConfig, nil, nil, c, 1*time.Minute, nil)
 		m.watcher.StartTime = math.MaxInt64
 		m.watcher.MaxSegment = segments[len(segments)-2]
 		err := m.watcher.Run()

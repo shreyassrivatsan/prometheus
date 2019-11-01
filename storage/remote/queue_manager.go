@@ -29,6 +29,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/prometheus/config"
+	"github.com/prometheus/prometheus/pkg/exemplar"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/pkg/relabel"
 	"github.com/prometheus/prometheus/prompb"
@@ -212,6 +213,8 @@ type QueueManager struct {
 	integralAccumulator                                       float64
 	startedAt                                                 time.Time
 
+	exemplarStore exemplar.Storage
+
 	highestSentTimestampMetric *maxGauge
 	pendingSamplesMetric       prometheus.Gauge
 	enqueueRetriesMetric       prometheus.Counter
@@ -228,7 +231,7 @@ type QueueManager struct {
 }
 
 // NewQueueManager builds a new QueueManager.
-func NewQueueManager(reg prometheus.Registerer, logger log.Logger, walDir string, samplesIn *ewmaRate, cfg config.QueueConfig, externalLabels labels.Labels, relabelConfigs []*relabel.Config, client StorageClient, flushDeadline time.Duration) *QueueManager {
+func NewQueueManager(reg prometheus.Registerer, logger log.Logger, walDir string, samplesIn *ewmaRate, cfg config.QueueConfig, externalLabels labels.Labels, relabelConfigs []*relabel.Config, client StorageClient, flushDeadline time.Duration, e exemplar.Storage) *QueueManager {
 	if logger == nil {
 		logger = log.NewNopLogger()
 	}
@@ -250,6 +253,8 @@ func NewQueueManager(reg prometheus.Registerer, logger log.Logger, walDir string
 		numShards:   cfg.MinShards,
 		reshardChan: make(chan int),
 		quit:        make(chan struct{}),
+
+		exemplarStore: e,
 
 		samplesIn:          samplesIn,
 		samplesDropped:     newEWMARate(ewmaWeight, shardUpdateDuration),
@@ -289,11 +294,22 @@ outer:
 			default:
 			}
 
-			if t.shards.enqueue(s.Ref, sample{
+			samp := sample{
 				labels: lbls,
 				t:      s.T,
 				v:      s.V,
-			}) {
+			}
+
+			// Lookup the exemplar for the particular timestamp.
+			if t.exemplarStore != nil {
+				e, found, err := t.exemplarStore.Get(lbls, s.T)
+				if err == nil && found {
+					samp.hasE = true
+					samp.e = e
+				}
+			}
+
+			if t.shards.enqueue(s.Ref, samp) {
 				continue outer
 			}
 
@@ -619,6 +635,8 @@ type sample struct {
 	labels labels.Labels
 	t      int64
 	v      float64
+	hasE   bool
+	e      exemplar.Exemplar
 }
 
 type shards struct {
@@ -766,6 +784,14 @@ func (s *shards) runShard(ctx context.Context, shardID int, queue chan sample) {
 			pendingSamples[nPending].Labels = labelsToLabelsProto(sample.labels, pendingSamples[nPending].Labels)
 			pendingSamples[nPending].Samples[0].Timestamp = sample.t
 			pendingSamples[nPending].Samples[0].Value = sample.v
+			if sample.hasE {
+				var labels []prompb.Label
+				pendingSamples[nPending].Samples[0].Exemplar = &prompb.Exemplar{
+					Labels:    labelsToLabelsProto(sample.e.Labels, labels),
+					Value:     sample.e.Value,
+					Timestamp: sample.e.Ts,
+				}
+			}
 			nPending++
 			s.qm.pendingSamplesMetric.Inc()
 
