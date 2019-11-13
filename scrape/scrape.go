@@ -37,6 +37,7 @@ import (
 
 	"github.com/prometheus/prometheus/config"
 	"github.com/prometheus/prometheus/discovery/targetgroup"
+	"github.com/prometheus/prometheus/pkg/exemplar"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/pkg/pool"
 	"github.com/prometheus/prometheus/pkg/relabel"
@@ -176,6 +177,7 @@ type scrapeLoopOptions struct {
 	honorLabels     bool
 	honorTimestamps bool
 	mrc             []*relabel.Config
+	exemplarStore   Exemplars
 }
 
 const maxAheadTime = 10 * time.Minute
@@ -227,6 +229,7 @@ func newScrapePool(cfg *config.ScrapeConfig, app Appendable, jitterSeed uint64, 
 				}
 				return appender(app, opts.limit)
 			},
+			opts.exemplarStore,
 			cache,
 			jitterSeed,
 			opts.honorTimestamps,
@@ -309,6 +312,7 @@ func (sp *scrapePool) reload(cfg *config.ScrapeConfig) error {
 		var (
 			t       = sp.activeTargets[fp]
 			s       = &targetScraper{Target: t, client: sp.client, timeout: timeout}
+			e       = newExemplarStore()
 			newLoop = sp.newLoop(scrapeLoopOptions{
 				target:          t,
 				scraper:         s,
@@ -316,6 +320,7 @@ func (sp *scrapePool) reload(cfg *config.ScrapeConfig) error {
 				honorLabels:     honorLabels,
 				honorTimestamps: honorTimestamps,
 				mrc:             mrc,
+				exemplarStore:   e,
 			})
 		)
 		wg.Add(1)
@@ -600,6 +605,7 @@ type scrapeLoop struct {
 	appender            func() storage.Appender
 	sampleMutator       labelsMutator
 	reportSampleMutator labelsMutator
+	exemplarStore       Exemplars
 
 	parentCtx context.Context
 	ctx       context.Context
@@ -834,6 +840,7 @@ func newScrapeLoop(ctx context.Context,
 	sampleMutator labelsMutator,
 	reportSampleMutator labelsMutator,
 	appender func() storage.Appender,
+	exemplarStore Exemplars,
 	cache *scrapeCache,
 	jitterSeed uint64,
 	honorTimestamps bool,
@@ -859,6 +866,7 @@ func newScrapeLoop(ctx context.Context,
 		l:                   l,
 		parentCtx:           ctx,
 		honorTimestamps:     honorTimestamps,
+		exemplarStore:       exemplarStore,
 	}
 	sl.ctx, sl.cancel = context.WithCancel(ctx)
 
@@ -1061,11 +1069,18 @@ loop:
 			t = *tp
 		}
 
+		var e exemplar.Exemplar
+		found := p.Exemplar(&e)
+
 		if sl.cache.getDropped(yoloString(met)) {
 			continue
 		}
 		ce, ok := sl.cache.get(yoloString(met))
 		if ok {
+			// Store the exemplar in the exemplar store.
+			if found {
+				sl.exemplarStore.Add(ce.lset, uint64(t), e)
+			}
 			switch err = app.AddFast(ce.lset, ce.ref, t, v); err {
 			case nil:
 				if tp == nil {
@@ -1112,6 +1127,11 @@ loop:
 			if lset == nil {
 				sl.cache.addDropped(mets)
 				continue
+			}
+
+			// Store the exemplar in the exemplar store.
+			if found {
+				sl.exemplarStore.Add(lset, uint64(t), e)
 			}
 
 			var ref uint64
