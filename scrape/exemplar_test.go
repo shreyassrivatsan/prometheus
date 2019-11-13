@@ -25,12 +25,12 @@ import (
 )
 
 func TestExemplarStore(t *testing.T) {
-	ts := uint64(timestamp.FromTime(time.Now()))
+	ts := timestamp.FromTime(time.Now())
 	cases := []struct {
 		name      string
 		addLabels int
-		addTs     uint64
-		getTs     uint64
+		addTs     int64
+		getTs     int64
 		found     bool
 	}{
 		{
@@ -75,7 +75,7 @@ func TestExemplarStore(t *testing.T) {
 			e := exemplar.Exemplar{Labels: labels.FromStrings("traceID", "123bca45dce")}
 			store := newExemplarStore()
 			store.Add(getLabels(c.addLabels), c.addTs, e)
-			res, found := store.Get(getLabels(c.addLabels), c.getTs)
+			res, found, _ := store.Get(getLabels(c.addLabels), c.getTs)
 			testutil.Equals(t, c.found, found)
 			if found {
 				testutil.Equals(t, e, res)
@@ -85,7 +85,7 @@ func TestExemplarStore(t *testing.T) {
 }
 
 func TestExemplarMultiple(t *testing.T) {
-	ts := uint64(timestamp.FromTime(time.Now()))
+	ts := timestamp.FromTime(time.Now())
 	store := newExemplarStore()
 
 	e1 := exemplar.Exemplar{Labels: labels.FromStrings("traceID", "123bca45dce")}
@@ -97,15 +97,15 @@ func TestExemplarMultiple(t *testing.T) {
 	e3 := exemplar.Exemplar{Labels: labels.FromStrings("traceID", "323bca45dce")}
 	store.Add(getLabels(2), ts-1, e3)
 
-	res, found := store.Get(getLabels(2), ts)
+	res, found, _ := store.Get(getLabels(2), ts)
 	testutil.Equals(t, true, found)
 	testutil.Equals(t, e1, res)
 
-	res, found = store.Get(getLabels(2), ts-1)
+	res, found, _ = store.Get(getLabels(2), ts-1)
 	testutil.Equals(t, true, found)
 	testutil.Equals(t, e3, res)
 
-	res, found = store.Get(getLabels(2), ts+1)
+	res, found, _ = store.Get(getLabels(2), ts+1)
 	testutil.Equals(t, true, found)
 	testutil.Equals(t, e2, res)
 }

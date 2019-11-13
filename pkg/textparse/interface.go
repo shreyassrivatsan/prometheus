@@ -14,6 +14,8 @@
 package textparse
 
 import (
+	"mime"
+
 	"github.com/prometheus/prometheus/pkg/exemplar"
 	"github.com/prometheus/prometheus/pkg/labels"
 )
@@ -60,12 +62,11 @@ type Parser interface {
 
 // New returns a new parser of the byte slice.
 func New(b []byte, contentType string) Parser {
-	return NewOpenMetricsParser(b)
-	// mediaType, _, err := mime.ParseMediaType(contentType)
-	// if err == nil && mediaType == "application/openmetrics-text" {
-	// 	return NewOpenMetricsParser(b)
-	// }
-	// return NewPromParser(b)
+	mediaType, _, err := mime.ParseMediaType(contentType)
+	if err == nil && mediaType == "application/openmetrics-text" {
+		return NewOpenMetricsParser(b)
+	}
+	return NewPromParser(b)
 }
 
 // Entry represents the type of a parsed entry.

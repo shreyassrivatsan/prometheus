@@ -177,7 +177,7 @@ type scrapeLoopOptions struct {
 	honorLabels     bool
 	honorTimestamps bool
 	mrc             []*relabel.Config
-	exemplarStore   Exemplars
+	exemplarStore   exemplar.Storage
 }
 
 const maxAheadTime = 10 * time.Minute
@@ -605,7 +605,7 @@ type scrapeLoop struct {
 	appender            func() storage.Appender
 	sampleMutator       labelsMutator
 	reportSampleMutator labelsMutator
-	exemplarStore       Exemplars
+	exemplarStore       exemplar.Storage
 
 	parentCtx context.Context
 	ctx       context.Context
@@ -840,7 +840,7 @@ func newScrapeLoop(ctx context.Context,
 	sampleMutator labelsMutator,
 	reportSampleMutator labelsMutator,
 	appender func() storage.Appender,
-	exemplarStore Exemplars,
+	exemplarStore exemplar.Storage,
 	cache *scrapeCache,
 	jitterSeed uint64,
 	honorTimestamps bool,
@@ -1079,7 +1079,7 @@ loop:
 		if ok {
 			// Store the exemplar in the exemplar store.
 			if found {
-				sl.exemplarStore.Add(ce.lset, uint64(t), e)
+				sl.exemplarStore.Add(ce.lset, t, e)
 			}
 			switch err = app.AddFast(ce.lset, ce.ref, t, v); err {
 			case nil:
@@ -1131,7 +1131,7 @@ loop:
 
 			// Store the exemplar in the exemplar store.
 			if found {
-				sl.exemplarStore.Add(lset, uint64(t), e)
+				sl.exemplarStore.Add(lset, t, e)
 			}
 
 			var ref uint64

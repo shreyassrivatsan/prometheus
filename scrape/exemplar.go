@@ -23,16 +23,9 @@ import (
 
 const sep = '\xff'
 
-// Exemplars is an interface to store and retrieve exemplars.
-type Exemplars interface {
-	Add(l labels.Labels, t uint64, e exemplar.Exemplar)
-	Get(l labels.Labels, t uint64) (exemplar.Exemplar, bool)
-	Query(l labels.Labels, start, end uint64) ([]exemplar.Exemplar, error)
-}
-
 type exemplarVal struct {
 	l labels.Labels
-	t uint64
+	t int64
 	e exemplar.Exemplar
 }
 
@@ -42,40 +35,45 @@ type exemplarStore struct {
 	data map[uint64][]exemplarVal
 }
 
-func newExemplarStore() Exemplars {
+func newExemplarStore() exemplar.Storage {
 	return &exemplarStore{make(map[uint64][]exemplarVal)}
 }
 
-func (ex *exemplarStore) Add(l labels.Labels, t uint64, e exemplar.Exemplar) {
+func (ex *exemplarStore) Add(l labels.Labels, t int64, e exemplar.Exemplar) error {
 	hash := hashLabelsTs(l, t)
 	ex.data[hash] = append(ex.data[hash], exemplarVal{l, t, e})
+	return nil
 }
 
-func (ex *exemplarStore) Get(l labels.Labels, t uint64) (exemplar.Exemplar, bool) {
+func (ex *exemplarStore) Get(l labels.Labels, t int64) (exemplar.Exemplar, bool, error) {
 	hash := hashLabelsTs(l, t)
 	val, ok := ex.data[hash]
 	if !ok {
-		return exemplar.Exemplar{}, false
+		return exemplar.Exemplar{}, false, nil
 	}
 	if len(val) == 1 {
-		return val[0].e, true
+		return val[0].e, true, nil
 	}
 
 	// If we find more than 1, then go over the exemplars and compare.
 	for _, e := range val {
 		if e.t == t && compareLabels(e.l, l) {
-			return e.e, true
+			return e.e, true, nil
 		}
 	}
-	return exemplar.Exemplar{}, false
+	return exemplar.Exemplar{}, false, nil
 }
 
-func (ex *exemplarStore) Query(l labels.Labels, s, e uint64) ([]exemplar.Exemplar, error) {
+func (ex *exemplarStore) Query(l labels.Labels, s, e int64) ([]exemplar.Exemplar, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
+func (ex *exemplarStore) Close() error {
+	return nil
+}
+
 // hashLabelsTs returns a hash value for the label set.
-func hashLabelsTs(l labels.Labels, t uint64) uint64 {
+func hashLabelsTs(l labels.Labels, t int64) uint64 {
 	// TODO: reuse byte array on which we are computing the hash.
 	b := make([]byte, 0, 1024)
 
@@ -85,7 +83,7 @@ func hashLabelsTs(l labels.Labels, t uint64) uint64 {
 		b = append(b, v.Value...)
 		b = append(b, sep)
 	}
-	b = appendTs(b, t)
+	b = appendTs(b, uint64(t))
 	return xxhash.Sum64(b)
 }
 

@@ -34,7 +34,6 @@ import (
 
 	"github.com/prometheus/prometheus/config"
 	"github.com/prometheus/prometheus/discovery/targetgroup"
-	"github.com/prometheus/prometheus/pkg/exemplar"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/pkg/relabel"
 	"github.com/prometheus/prometheus/pkg/textparse"
@@ -968,14 +967,6 @@ func TestScrapeLoopAppend(t *testing.T) {
 			discoveryLabels: nil,
 			expLset:         labels.FromStrings("__name__", "metric"),
 			expValue:        float64(value.NormalNaN),
-		}, {
-			title:           "Exemplar Present",
-			honorLabels:     false,
-			scrapeLabels:    `metric{n="1"} 0 # {aa="bb",cc="dd"} 1`,
-			discoveryLabels: []string{"n", "2"},
-			expLset:         labels.FromStrings("__name__", "metric", "exported_n", "1", "n", "2"),
-			expValue:        0,
-			exemplar:        exemplar.Exemplar{Labels: labels.FromStrings("aa", "bb", "cc", "dd"), Value: 1},
 		},
 	}
 
