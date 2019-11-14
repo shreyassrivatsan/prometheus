@@ -406,6 +406,7 @@ func (sp *scrapePool) sync(targets []*Target) {
 				honorLabels:     honorLabels,
 				honorTimestamps: honorTimestamps,
 				mrc:             mrc,
+				exemplarStore:   sp.exemplarStore,
 			})
 
 			sp.activeTargets[hash] = t
@@ -1080,7 +1081,9 @@ loop:
 		if ok {
 			// Store the exemplar in the exemplar store.
 			if found {
-				sl.exemplarStore.Add(ce.lset, t, e)
+				if sl.exemplarStore != nil {
+					sl.exemplarStore.Add(ce.lset, t, e)
+				}
 			}
 			switch err = app.AddFast(ce.lset, ce.ref, t, v); err {
 			case nil:
@@ -1132,7 +1135,9 @@ loop:
 
 			// Store the exemplar in the exemplar store.
 			if found {
-				sl.exemplarStore.Add(lset, t, e)
+				if sl.exemplarStore != nil {
+					sl.exemplarStore.Add(lset, t, e)
+				}
 			}
 
 			var ref uint64
