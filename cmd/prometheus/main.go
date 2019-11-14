@@ -338,7 +338,7 @@ func main() {
 	var (
 		exemplarStorage = scrape.NewExemplarStore()
 		localStorage    = &tsdb.ReadyStorage{}
-		remoteStorage   = remote.NewStorage(log.With(logger, "component", "remote"), prometheus.DefaultRegisterer, localStorage.StartTime, cfg.localStoragePath, time.Duration(cfg.RemoteFlushDeadline))
+		remoteStorage   = remote.NewStorage(log.With(logger, "component", "remote"), prometheus.DefaultRegisterer, localStorage.StartTime, cfg.localStoragePath, time.Duration(cfg.RemoteFlushDeadline), exemplarStorage)
 		fanoutStorage   = storage.NewFanout(logger, localStorage, remoteStorage)
 	)
 
