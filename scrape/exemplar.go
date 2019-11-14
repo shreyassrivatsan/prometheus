@@ -15,6 +15,7 @@ package scrape
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/cespare/xxhash"
 	"github.com/prometheus/prometheus/pkg/exemplar"
@@ -31,22 +32,32 @@ type exemplarVal struct {
 
 // exemplarStore is an in-memory implementation of the exemplars interface.
 type exemplarStore struct {
+	sync.RWMutex
 	// TODO: need to be able to age out information.
 	data map[uint64][]exemplarVal
 }
 
-func newExemplarStore() exemplar.Storage {
-	return &exemplarStore{make(map[uint64][]exemplarVal)}
+// NewExemplarStore returns a new exemplar storage.
+func NewExemplarStore() exemplar.Storage {
+	return &exemplarStore{data: make(map[uint64][]exemplarVal)}
 }
 
 func (ex *exemplarStore) Add(l labels.Labels, t int64, e exemplar.Exemplar) error {
 	hash := hashLabelsTs(l, t)
+
+	ex.Lock()
 	ex.data[hash] = append(ex.data[hash], exemplarVal{l, t, e})
+	ex.Unlock()
+
 	return nil
 }
 
 func (ex *exemplarStore) Get(l labels.Labels, t int64) (exemplar.Exemplar, bool, error) {
 	hash := hashLabelsTs(l, t)
+
+	ex.RLock()
+	defer ex.RUnlock()
+
 	val, ok := ex.data[hash]
 	if !ok {
 		return exemplar.Exemplar{}, false, nil

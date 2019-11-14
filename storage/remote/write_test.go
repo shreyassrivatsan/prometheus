@@ -30,7 +30,7 @@ func TestWriteStorageLifecycle(t *testing.T) {
 	testutil.Ok(t, err)
 	defer os.RemoveAll(dir)
 
-	s := NewWriteStorage(nil, dir, defaultFlushDeadline)
+	s := NewWriteStorage(nil, dir, defaultFlushDeadline, nil)
 	conf := &config.Config{
 		GlobalConfig: config.DefaultGlobalConfig,
 		RemoteWriteConfigs: []*config.RemoteWriteConfig{
@@ -49,7 +49,7 @@ func TestUpdateExternalLabels(t *testing.T) {
 	testutil.Ok(t, err)
 	defer os.RemoveAll(dir)
 
-	s := NewWriteStorage(nil, dir, defaultFlushDeadline)
+	s := NewWriteStorage(nil, dir, defaultFlushDeadline, nil)
 
 	externalLabels := labels.FromStrings("external", "true")
 	conf := &config.Config{
@@ -76,7 +76,7 @@ func TestWriteStorageApplyConfigsIdempotent(t *testing.T) {
 	testutil.Ok(t, err)
 	defer os.RemoveAll(dir)
 
-	s := NewWriteStorage(nil, dir, defaultFlushDeadline)
+	s := NewWriteStorage(nil, dir, defaultFlushDeadline, nil)
 
 	conf := &config.Config{
 		GlobalConfig: config.GlobalConfig{},
@@ -101,7 +101,7 @@ func TestWriteStorageApplyConfigsPartialUpdate(t *testing.T) {
 	testutil.Ok(t, err)
 	defer os.RemoveAll(dir)
 
-	s := NewWriteStorage(nil, dir, defaultFlushDeadline)
+	s := NewWriteStorage(nil, dir, defaultFlushDeadline, nil)
 
 	c0 := &config.RemoteWriteConfig{
 		RemoteTimeout: model.Duration(10 * time.Second),

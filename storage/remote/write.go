@@ -24,6 +24,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/prometheus/config"
+	"github.com/prometheus/prometheus/pkg/exemplar"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/storage"
 )
@@ -57,10 +58,11 @@ type WriteStorage struct {
 	hashes            [][16]byte
 	samplesIn         *ewmaRate
 	flushDeadline     time.Duration
+	exemplarStore     exemplar.Storage
 }
 
 // NewWriteStorage creates and runs a WriteStorage.
-func NewWriteStorage(logger log.Logger, walDir string, flushDeadline time.Duration) *WriteStorage {
+func NewWriteStorage(logger log.Logger, walDir string, flushDeadline time.Duration, e exemplar.Storage) *WriteStorage {
 	if logger == nil {
 		logger = log.NewNopLogger()
 	}
@@ -69,6 +71,7 @@ func NewWriteStorage(logger log.Logger, walDir string, flushDeadline time.Durati
 		flushDeadline: flushDeadline,
 		samplesIn:     newEWMARate(ewmaWeight, shardUpdateDuration),
 		walDir:        walDir,
+		exemplarStore: e,
 	}
 	go rws.run()
 	return rws
@@ -150,6 +153,7 @@ func (rws *WriteStorage) ApplyConfig(conf *config.Config) error {
 			rwConf.WriteRelabelConfigs,
 			c,
 			rws.flushDeadline,
+			rws.exemplarStore,
 		))
 		newHashes = append(newHashes, hash)
 		newClientIndexes = append(newClientIndexes, i)

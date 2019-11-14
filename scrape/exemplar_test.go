@@ -73,7 +73,7 @@ func TestExemplarStore(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			e := exemplar.Exemplar{Labels: labels.FromStrings("traceID", "123bca45dce")}
-			store := newExemplarStore()
+			store := NewExemplarStore()
 			store.Add(getLabels(c.addLabels), c.addTs, e)
 			res, found, _ := store.Get(getLabels(c.addLabels), c.getTs)
 			testutil.Equals(t, c.found, found)
@@ -86,7 +86,7 @@ func TestExemplarStore(t *testing.T) {
 
 func TestExemplarMultiple(t *testing.T) {
 	ts := timestamp.FromTime(time.Now())
-	store := newExemplarStore()
+	store := NewExemplarStore()
 
 	e1 := exemplar.Exemplar{Labels: labels.FromStrings("traceID", "123bca45dce")}
 	store.Add(getLabels(2), ts, e1)
