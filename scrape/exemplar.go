@@ -89,6 +89,9 @@ func hashLabelsTs(l labels.Labels, t int64) uint64 {
 	b := make([]byte, 0, 1024)
 
 	for _, v := range l {
+		if v.Name == "role" {
+			continue
+		}
 		b = append(b, v.Name...)
 		b = append(b, sep)
 		b = append(b, v.Value...)
@@ -116,9 +119,15 @@ func compareLabels(l1, l2 labels.Labels) bool {
 	}
 	l1Map := make(map[string]string, len(l1))
 	for _, v := range l1 {
+		if v.Name == "role" {
+			continue
+		}
 		l1Map[v.Name] = v.Value
 	}
 	for _, v := range l2 {
+		if v.Name == "role" {
+			continue
+		}
 		if _, ok := l1Map[v.Name]; !ok {
 			return false
 		}
